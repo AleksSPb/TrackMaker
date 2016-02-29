@@ -15,7 +15,6 @@ public class GPS_Point {
     Double latitude;
     Double longitude;
     Double elevation;
-    Long millesecundFromLast = 0L;
     Date date;
     String note;
     byte type = 0;
@@ -32,7 +31,8 @@ public class GPS_Point {
     }
 
     public String toString() {
-        return "Point num " + objID + ":" + pointNum + ", lat " + latitude + " , lon " + longitude + ";" + note + "\n";
+       // return "Point num " + objID + ":" + pointNum + ", lat " + latitude + " , lon " + longitude + ";" + note + "\n";
+        return objID + " " + pointNum + " " + latitude + " " + longitude + " " + note ;
     }
 
     public Double distance(GPS_Point toPoint) {

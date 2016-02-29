@@ -1,11 +1,17 @@
 package com.company;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.*;
 
 import static java.lang.Math.*;
@@ -13,10 +19,18 @@ import static java.lang.Math.*;
 import java.util.stream.Collectors;
 
 public class Main {
-    private final static byte lineType = 2;
-    private final static byte pointType = 1;
-
+    private final static byte LINE_TYPE = 2;
+    private final static byte POINT_TYPE = 1;
     private final static Charset ENCODING = StandardCharsets.UTF_8;
+    
+    private static Double lowSpeed = 0.3;//metres in second
+    private static Double highSpeed = 0.5;//metres in second
+    private static Double beforePointLatencyLow = 18.0;//second
+    private static Double beforePointLatencyHigh = 36.0;//second
+    private static Double afterPointLatencyLow = 18.0;//second
+    private static Double afterPointLatencyHigh = 36.0;//second
+    private static LocalDateTime trackStartTime;
+    private final static DateFormat gpxDateFormat = new SimpleDateFormat ("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static Long trackObjectID;
     private static List<GPS_Point> unsortFileEntries = new ArrayList<GPS_Point>();
 
@@ -93,16 +107,16 @@ public class Main {
                     continue;
                 }
                 else if (curID == curObj.getObjID()) {
-                    objects.get(prevEntry).setType(lineType);
-                    curObj.setType(lineType);
+                    objects.get(prevEntry).setType(LINE_TYPE);
+                    curObj.setType(LINE_TYPE);
                 } else { if (objects.get(prevEntry).getType()==0)
-                    objects.get(prevEntry).setType(pointType);
+                    objects.get(prevEntry).setType(POINT_TYPE);
                     curID = curObj.getObjID();
                 }
                 prevEntry++;
                
         }
-        if (objects.get(prevEntry).getType()==0) objects.get(prevEntry).setType(pointType);
+        if (objects.get(prevEntry).getType()==0) objects.get(prevEntry).setType(POINT_TYPE);
     }
     
     static Double getDelta(Double x1, Double y1, Double x2, Double y2, Double xp, Double yp) {
@@ -156,6 +170,20 @@ public class Main {
         if (args.length > 0) filename = args[0];
         else usage();
         String fileURL = convertToFileURL(filename);
+        Calendar calendar = Calendar.getInstance();
+        try {
+            String dateString = "2016-01-04T10:17:52Z";
+
+            //trackStartTime.parse(dateString,gpxDateFormat);
+            //Date dateTime = gpxDateFormat.parse(dateString);
+            //trackStartTime = gpxDateFormat.parseDateTime(timestamp);
+         //   trackStartTime = new Inst.get;
+            System.out.println(trackStartTime.toString());
+        }
+        catch (Exception ex) {
+            System.out.println("Unparsing date!");
+        }
+
 
         try {
             readTextFile(filename);
@@ -177,7 +205,7 @@ public class Main {
         List<GPS_Point> points =
                 unsortFileEntries
                         .stream()
-                        .filter(p -> p.getType() == pointType)
+                        .filter(p -> p.getType() == POINT_TYPE)
                         .collect(Collectors.toList());
     
         System.out.println("Points: \n" + points);
@@ -188,5 +216,20 @@ public class Main {
         track.stream()
               .forEachOrdered(System.out::println);
         
+        try (PrintWriter fileout = new PrintWriter("trackfile.txt")){
+            
+            Random randomGenerator = new Random();
+            fileout.println(track.get(0) + " " + (track.get(0).getElevation() + randomGenerator.nextInt(20) / 13 - 10 / 13.0));
+            for (int i = 1; i < track.size(); i++) {
+                GPS_Point prev = track.get(i - 1);
+                Double distance = prev.distance(track.get(i));
+                Double speed = lowSpeed + randomGenerator.nextInt(100) * (highSpeed - lowSpeed) / 100;
+                Double time = distance / speed;
+                fileout.println(track.get(i) + " " + (track.get(i).getElevation() + randomGenerator.nextInt(20) / 13.0 - 10 / 13.0) + " " + distance + " " + time);
+            }
+        }
+        catch (FileNotFoundException ex) {
+            System.out.println("File not found!");
+        }
     }
 }
