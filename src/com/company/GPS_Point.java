@@ -32,7 +32,7 @@ public class GPS_Point {
 
     public String toString() {
        // return "Point num " + objID + ":" + pointNum + ", lat " + latitude + " , lon " + longitude + ";" + note + "\n";
-        return objID + " " + pointNum + " " + latitude + " " + longitude + " " + note ;
+        return objID + "\t" + pointNum + "\t" + latitude + "\t" + longitude + "\t" + note ;
     }
 
     public Double distance(GPS_Point toPoint) {

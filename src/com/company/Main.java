@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -23,19 +22,23 @@ public class Main {
     private final static byte POINT_TYPE = 1;
     private final static Charset ENCODING = StandardCharsets.UTF_8;
     
-    private static Double lowSpeed = 0.3;//metres in second
-    private static Double highSpeed = 0.5;//metres in second
-    private static Double beforePointLatencyLow = 18.0;//second
-    private static Double beforePointLatencyHigh = 36.0;//second
-    private static Double afterPointLatencyLow = 18.0;//second
-    private static Double afterPointLatencyHigh = 36.0;//second
+    private static Double lowSpeed = 0.5;//metres in second
+    private static Double speedRandomRange = 0.25;//metres in second
+    private static Double beforePointLatencyLow = 22.0;//second
+    private static Double beforePointRandomRange = 18.0;//second
+    private static Double afterPointLatencyLow = 15.0;//second
+    private static Double afterPointRandomRange = 15.0;//second
     private static LocalDateTime trackStartTime;
     private final static DateFormat gpxDateFormat = new SimpleDateFormat ("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static Long trackObjectID;
     private static List<GPS_Point> unsortFileEntries = new ArrayList<GPS_Point>();
 
     private static void usage() {
-        System.err.println("Usage: TrackMaker <file.txt>");
+        System.err.println("Usage: TrackMaker <file.txt> track_ID");
+        System.err.println("Input text file structure:");
+        System.err.println("ObjID   PointNum X Y Lat Lon H Note");
+        System.err.println("Output text file (trackfile.txt) structure:");
+        System.err.println("ObjID   PointNum Lat Lon Note H distance_from_previsios_point time_from_previsiuos_point");
         System.exit(1);
     }
 
@@ -69,8 +72,8 @@ public class Main {
             String note=null;
         if (split.length > 8) {
                 note = split[8];
-                System.out.println("Name is : " + objID + ", pointNum : " + pointNumber + ", lat " + lat + ", lon " + lon + ", note " + note);
-            } else System.out.println("Name is : " + objID + ", pointNum : " + pointNumber + ", lat " + lat + ", lon " + lon);
+             //   System.out.println("Name is : " + objID + ", pointNum : " + pointNumber + ", lat " + lat + ", lon " + lon + ", note " + note);
+            } //else System.out.println("Name is : " + objID + ", pointNum : " + pointNumber + ", lat " + lat + ", lon " + lon);
     return new GPS_Point(objID, pointNumber, x, y, lat, lon, elevation, note);
 
     }
@@ -150,7 +153,7 @@ public class Main {
             
         }
         if (delta > 500) return -1;
-        return curSegment;
+        return curSegment + 1;
     }
     
     static void insertPointsToTrack(List<GPS_Point> track, List<GPS_Point> points) {
@@ -168,6 +171,7 @@ public class Main {
 	// write your code here
         String filename = null;
         if (args.length > 0) filename = args[0];
+
         else usage();
         String fileURL = convertToFileURL(filename);
         Calendar calendar = Calendar.getInstance();
@@ -188,19 +192,20 @@ public class Main {
         try {
             readTextFile(filename);
             trackObjectID = 18L;
+            if (args.length > 1) trackObjectID = Long.parseLong(args[1]);
         }
         catch (IOException ex) {
             System.err.println("Error in reading input file!!!");
             System.exit(1);
         }
-
+        System.out.println("Try to find line with ID " + trackObjectID);
         setType(unsortFileEntries);
         List<GPS_Point> track = unsortFileEntries
                         .stream()
                         .filter(p -> p.getObjID() == trackObjectID)
                         .collect(Collectors.toList());
 
-        System.out.println("Track:/n" + track);
+     //   System.out.println("Track:/n" + track);
     
         List<GPS_Point> points =
                 unsortFileEntries
@@ -208,25 +213,36 @@ public class Main {
                         .filter(p -> p.getType() == POINT_TYPE)
                         .collect(Collectors.toList());
     
-        System.out.println("Points: \n" + points);
+       // System.out.println("Points: \n" + points);
         
         insertPointsToTrack(track, points);
     
-        System.out.println("Track+points:\n" );
+  /*      System.out.println("Track+points:\n" );
         track.stream()
-              .forEachOrdered(System.out::println);
+              .forEachOrdered(System.out::println);*/
         
         try (PrintWriter fileout = new PrintWriter("trackfile.txt")){
             
             Random randomGenerator = new Random();
-            fileout.println(track.get(0) + " " + (track.get(0).getElevation() + randomGenerator.nextInt(20) / 13 - 10 / 13.0));
+            Double trackDuration = 0.0;
+            Double trackLength = 0.0;
+            fileout.println(track.get(0) + "\t" + (track.get(0).getElevation() + randomGenerator.nextInt(20) / 13 - 10 / 13.0));
             for (int i = 1; i < track.size(); i++) {
                 GPS_Point prev = track.get(i - 1);
                 Double distance = prev.distance(track.get(i));
-                Double speed = lowSpeed + randomGenerator.nextInt(100) * (highSpeed - lowSpeed) / 100;
-                Double time = distance / speed;
-                fileout.println(track.get(i) + " " + (track.get(i).getElevation() + randomGenerator.nextInt(20) / 13.0 - 10 / 13.0) + " " + distance + " " + time);
+                trackLength += distance;
+                Double speed = lowSpeed + randomGenerator.nextDouble() * speedRandomRange;
+                if (randomGenerator.nextInt(10) < 3) speed = speed - speedRandomRange/2;//иногда ещё замедляемся.
+                Double additionalTime = 0.0;
+                if (track.get(i).getType() == POINT_TYPE) 
+                    additionalTime = beforePointLatencyLow + randomGenerator.nextDouble()* beforePointRandomRange;
+                if (prev.getType() == POINT_TYPE)
+                    additionalTime = afterPointLatencyLow + randomGenerator.nextDouble()* afterPointRandomRange;
+                Double time = distance / speed + additionalTime;
+                trackDuration += time;
+                fileout.println(track.get(i) + "\t" + (track.get(i).getElevation() + randomGenerator.nextInt(20) / 49.0 - 10 / 49.0) + "\t" + distance + "\t" + time);
             }
+            System.out.println("Track length " + trackLength +"metres, duration in hours " + trackDuration/3600);
         }
         catch (FileNotFoundException ex) {
             System.out.println("File not found!");
