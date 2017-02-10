@@ -17,11 +17,14 @@ import static java.lang.Math.*;
 
 import java.util.stream.Collectors;
 
+import org.apache.commons.io.FilenameUtils;
+
+
 public class Main {
     private final static byte LINE_TYPE = 2;
     private final static byte POINT_TYPE = 1;
     private final static Charset ENCODING = StandardCharsets.UTF_8;
-    
+
     private static Double lowSpeed = 0.5;//metres in second
     private static Double speedRandomRange = 0.25;//metres in second
     private static Double beforePointLatencyLow = 22.0;//second
@@ -29,15 +32,15 @@ public class Main {
     private static Double afterPointLatencyLow = 15.0;//second
     private static Double afterPointRandomRange = 15.0;//second
     private static LocalDateTime trackStartTime;
-    private final static DateFormat gpxDateFormat = new SimpleDateFormat ("yyyy-MM-dd'T'HH:mm:ss'Z'");
+    private final static DateFormat gpxDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static Long trackObjectID;
     private static List<GPS_Point> unsortFileEntries = new ArrayList<GPS_Point>();
 
     private static void usage() {
-        System.err.println("Usage: TrackMaker <file.txt> track_ID");
+        System.err.println("Usage: TrackMaker <file.txt> track_ID lowestSpeed");
         System.err.println("Input text file structure:");
         System.err.println("ObjID   PointNum X Y Lat Lon H Note");
-        System.err.println("Output text file (trackfile.txt) structure:");
+        System.err.println("Output text file (_track.txt) structure:");
         System.err.println("ObjID   PointNum Lat Lon Note H distance_from_previsios_point time_from_previsiuos_point");
         System.exit(1);
     }
@@ -55,120 +58,118 @@ public class Main {
     }
 
     static GPS_Point createGPSObjectFromString(String inputString) throws Exception {
-        String[] split=inputString.split("\\s+");
-        if (split.length < 8)  {
+        String[] split = inputString.split("\\s+");
+        if (split.length < 8) {
             System.out.println("Empty or invalid line. Unable to process.");
             throw new Exception("Error! Line has too less arguments");
         }
-            //assumes the line has a certain structure
+        //assumes the line has a certain structure
 //            String str1 = integerValue scanner.next().;
-            Long objID = Long.valueOf(split[0]);
-            Long pointNumber = Long.valueOf(split[2]);
-            Double x = Double.valueOf(split[3]);
-            Double y = Double.valueOf(split[4]);
-            Double lat = Double.valueOf(split[5]);
-            Double lon = Double.valueOf(split[6]);
-            Double elevation = Double.valueOf(split[7]);
-            String note=null;
+        Long objID = Long.valueOf(split[0]);
+        Long pointNumber = Long.valueOf(split[2]);
+        Double x = Double.valueOf(split[3]);
+        Double y = Double.valueOf(split[4]);
+        Double lat = Double.valueOf(split[5]);
+        Double lon = Double.valueOf(split[6]);
+        Double elevation = Double.valueOf(split[7]);
+        String note = null;
         if (split.length > 8) {
-                note = split[8];
-             //   System.out.println("Name is : " + objID + ", pointNum : " + pointNumber + ", lat " + lat + ", lon " + lon + ", note " + note);
-            } //else System.out.println("Name is : " + objID + ", pointNum : " + pointNumber + ", lat " + lat + ", lon " + lon);
-    return new GPS_Point(objID, pointNumber, x, y, lat, lon, elevation, note);
+            note = split[8];
+            //   System.out.println("Name is : " + objID + ", pointNum : " + pointNumber + ", lat " + lat + ", lon " + lon + ", note " + note);
+        } //else System.out.println("Name is : " + objID + ", pointNum : " + pointNumber + ", lat " + lat + ", lon " + lon);
+        return new GPS_Point(objID, pointNumber, x, y, lat, lon, elevation, note);
 
     }
 
     static void readTextFile(String aFileName) throws IOException {
         Path path = Paths.get(aFileName);
 
-                Scanner fileScanner = new Scanner(path, ENCODING.name());
-                int i = 0;
-                while(fileScanner.hasNextLine())
+        Scanner fileScanner = new Scanner(path, "windows-1251");
+        int i = 0;
+        while (fileScanner.hasNextLine())
 
-                {
-                    //process each line in some way
-                    try {
-                        unsortFileEntries.add(createGPSObjectFromString(fileScanner.nextLine()));
-                        i++;
-                    } catch (Exception ex) {
-                        System.out.println("Problem with line " + i++);
-                    }
-                }
-
+        {
+            //process each line in some way
+            try {
+                unsortFileEntries.add(createGPSObjectFromString(fileScanner.nextLine()));
+                i++;
+            } catch (Exception ex) {
+                System.out.println("Problem with line " + i++);
+            }
+        }
 
 
     }
-    static void setType(List <GPS_Point> objects) {
+
+    static void setType(List<GPS_Point> objects) {
         Long curID = 0L;
         Integer prevEntry = null;
         for (GPS_Point curObj : objects) {
-           
-               
-                if (curID == 0) {
-                    curID = curObj.getObjID();
-                    prevEntry = 0;
-                    continue;
-                }
-                else if (curID == curObj.getObjID()) {
-                    objects.get(prevEntry).setType(LINE_TYPE);
-                    curObj.setType(LINE_TYPE);
-                } else { if (objects.get(prevEntry).getType()==0)
+
+
+            if (curID == 0) {
+                curID = curObj.getObjID();
+                prevEntry = 0;
+                continue;
+            } else if (curID == curObj.getObjID()) {
+                objects.get(prevEntry).setType(LINE_TYPE);
+                curObj.setType(LINE_TYPE);
+            } else {
+                if (objects.get(prevEntry).getType() == 0)
                     objects.get(prevEntry).setType(POINT_TYPE);
-                    curID = curObj.getObjID();
-                }
-                prevEntry++;
-               
+                curID = curObj.getObjID();
+            }
+            prevEntry++;
+
         }
-        if (objects.get(prevEntry).getType()==0) objects.get(prevEntry).setType(POINT_TYPE);
+        if (objects.get(prevEntry).getType() == 0) objects.get(prevEntry).setType(POINT_TYPE);
     }
-    
+
     static Double getDelta(Double x1, Double y1, Double x2, Double y2, Double xp, Double yp) {
-        Double segmentSquare = pow((x2 - x1),2) + pow((y2 - y1),2);
-        Double aSquare = pow((xp - x1),2) + pow((yp - y1),2);
-        Double bSquare = pow((x2 - xp),2) + pow((y2 - yp),2);
-        return aSquare + bSquare -segmentSquare;
+        Double segmentSquare = pow((x2 - x1), 2) + pow((y2 - y1), 2);
+        Double aSquare = pow((xp - x1), 2) + pow((yp - y1), 2);
+        Double bSquare = pow((x2 - xp), 2) + pow((y2 - yp), 2);
+        return aSquare + bSquare - segmentSquare;
     }
-    
+
     static Integer findSegment(GPS_Point gpsPoint, List<GPS_Point> track) {
         Integer curSegment = -1;
         Double delta = Double.MAX_VALUE;
         Integer prevEntry = null;
-        for (GPS_Point curObj: track) {
-                if (curSegment == -1) {
-                    curSegment = 1;
-                    prevEntry = 0;
-                    continue;
+        for (GPS_Point curObj : track) {
+            if (curSegment == -1) {
+                curSegment = 1;
+                prevEntry = 0;
+                continue;
+            } else {
+                Double curDelta = getDelta(track.get(prevEntry).getPlainX(), track.get(prevEntry).getPlainY(), curObj.getPlainX(), curObj.getPlainY(), gpsPoint.getPlainX(), gpsPoint.getPlainY());
+                if (curDelta == 0) return prevEntry;
+                if (curDelta < delta) {
+                    curSegment = prevEntry;
+                    delta = curDelta;
                 }
-                else  {
-                    Double curDelta = getDelta(track.get(prevEntry).getPlainX(),track.get(prevEntry).getPlainY(), curObj.getPlainX(), curObj.getPlainY(), gpsPoint.getPlainX(), gpsPoint.getPlainY());
-                    if (curDelta == 0) return prevEntry;
-                    if (curDelta < delta) {
-                        curSegment = prevEntry;
-                        delta = curDelta;
-                    }
-                } 
-                prevEntry++;
-            
-            
-            
+            }
+            prevEntry++;
+
+
         }
         if (delta > 500) return -1;
         return curSegment + 1;
     }
-    
+
     static void insertPointsToTrack(List<GPS_Point> track, List<GPS_Point> points) {
         for (GPS_Point curObj : points) {
-                Integer insertKey = findSegment(curObj, track);
-                if (insertKey >= 0) {
-                    track.add(insertKey, curObj);
-                } else {
-                    System.out.println("Point not near track!!! Point " + curObj.getObjID() + " note:" + curObj.getNote());
-                }
+            Integer insertKey = findSegment(curObj, track);
+            if (insertKey >= 0) {
+                track.add(insertKey, curObj);
+            } else {
+                System.out.println("Point not near track!!! Point " + curObj.getObjID() + " note:" + curObj.getNote());
+            }
         }
     }
 
     public static void main(String[] args) {
-	// write your code here
+        // write your code here
         String filename = null;
         if (args.length > 0) filename = args[0];
 
@@ -181,10 +182,9 @@ public class Main {
             //trackStartTime.parse(dateString,gpxDateFormat);
             //Date dateTime = gpxDateFormat.parse(dateString);
             //trackStartTime = gpxDateFormat.parseDateTime(timestamp);
-         //   trackStartTime = new Inst.get;
+            //   trackStartTime = new Inst.get;
             System.out.println(trackStartTime.toString());
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             System.out.println("Unparsing date!");
         }
 
@@ -193,36 +193,46 @@ public class Main {
             readTextFile(filename);
             trackObjectID = 18L;
             if (args.length > 1) trackObjectID = Long.parseLong(args[1]);
-        }
-        catch (IOException ex) {
+            if (args.length > 2) {
+                try {
+                    Double lowestSpeed =  Double.parseDouble(args[2]);
+                    lowSpeed = lowestSpeed;
+                } catch (NumberFormatException ex) {
+                    System.err.println("Third parameter must be number. Error in parsing " + args[2]);
+                }
+
+            }
+        } catch (IOException ex) {
             System.err.println("Error in reading input file!!!");
             System.exit(1);
         }
         System.out.println("Try to find line with ID " + trackObjectID);
         setType(unsortFileEntries);
         List<GPS_Point> track = unsortFileEntries
-                        .stream()
-                        .filter(p -> p.getObjID() == trackObjectID)
-                        .collect(Collectors.toList());
+                .stream()
+                .filter(p -> p.getObjID() == trackObjectID)
+                .collect(Collectors.toList());
 
-     //   System.out.println("Track:/n" + track);
-    
+        //   System.out.println("Track:/n" + track);
+
         List<GPS_Point> points =
                 unsortFileEntries
                         .stream()
                         .filter(p -> p.getType() == POINT_TYPE)
                         .collect(Collectors.toList());
-    
-       // System.out.println("Points: \n" + points);
-        
+
+        // System.out.println("Points: \n" + points);
+
         insertPointsToTrack(track, points);
     
   /*      System.out.println("Track+points:\n" );
         track.stream()
               .forEachOrdered(System.out::println);*/
-        
-        try (PrintWriter fileout = new PrintWriter("trackfile.txt")){
-            
+
+        String trackFileName = FilenameUtils.removeExtension(filename) + "_track.txt";
+
+        try (PrintWriter fileout = new PrintWriter(trackFileName)) {
+
             Random randomGenerator = new Random();
             Double trackDuration = 0.0;
             Double trackLength = 0.0;
@@ -232,19 +242,25 @@ public class Main {
                 Double distance = prev.distance(track.get(i));
                 trackLength += distance;
                 Double speed = lowSpeed + randomGenerator.nextDouble() * speedRandomRange;
-                if (randomGenerator.nextInt(10) < 3) speed = speed - speedRandomRange/2;//иногда ещё замедляемся.
+                if (randomGenerator.nextInt(10) < 3) speed = speed - speedRandomRange / 2;//иногда ещё замедляемся.
                 Double additionalTime = 0.0;
-                if (track.get(i).getType() == POINT_TYPE) 
-                    additionalTime = beforePointLatencyLow + randomGenerator.nextDouble()* beforePointRandomRange;
+                if (track.get(i).getType() == POINT_TYPE)
+                    additionalTime = beforePointLatencyLow + randomGenerator.nextDouble() * beforePointRandomRange;
                 if (prev.getType() == POINT_TYPE)
-                    additionalTime = afterPointLatencyLow + randomGenerator.nextDouble()* afterPointRandomRange;
+                    additionalTime = afterPointLatencyLow + randomGenerator.nextDouble() * afterPointRandomRange;
+                if (i>50 && i<track.size()-50) {
+                    if (randomGenerator.nextInt(100) == 5) {
+                        Integer addRandomTime = 120 + randomGenerator.nextInt(100);
+                        additionalTime +=addRandomTime;
+                        System.out.format("Add %d seconds for vertex %d\n", addRandomTime, i);
+                    }
+                }
                 Double time = distance / speed + additionalTime;
                 trackDuration += time;
                 fileout.println(track.get(i) + "\t" + (track.get(i).getElevation() + randomGenerator.nextInt(20) / 49.0 - 10 / 49.0) + "\t" + distance + "\t" + time);
             }
-            System.out.println("Track length " + trackLength +"metres, duration in hours " + trackDuration/3600);
-        }
-        catch (FileNotFoundException ex) {
+            System.out.println("Track length " + trackLength + " metres, vertexes - " + track.size() + ", duration in hours " + trackDuration / 3600);
+        } catch (FileNotFoundException ex) {
             System.out.println("File not found!");
         }
     }
