@@ -35,6 +35,11 @@ public class Main {
     private final static DateFormat gpxDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
     private static Long trackObjectID;
     private static List<GPS_Point> unsortFileEntries = new ArrayList<GPS_Point>();
+    private static StringBuilder trackText = new StringBuilder();
+    private static StringBuilder wayPointsText = new StringBuilder();
+    private static StringBuilder wayPointsDescr = new StringBuilder();
+    private static long startTime = 0;
+    private static int wptNumber = 1;
 
     private static void usage() {
         System.err.println("Usage: TrackMaker <file.txt> track_ID lowestSpeed");
@@ -176,14 +181,19 @@ public class Main {
         else usage();
         String fileURL = convertToFileURL(filename);
         Calendar calendar = Calendar.getInstance();
+
         try {
             String dateString = "2016-01-04T10:17:52Z";
 
-            //trackStartTime.parse(dateString,gpxDateFormat);
+            Date date = gpxDateFormat.parse(dateString);
+
             //Date dateTime = gpxDateFormat.parse(dateString);
             //trackStartTime = gpxDateFormat.parseDateTime(timestamp);
             //   trackStartTime = new Inst.get;
-            System.out.println(trackStartTime.toString());
+            startTime = date.getTime();
+            System.out.println(gpxDateFormat.format(date) + "  getTime - " + date.getTime());
+            date.setTime(date.getTime()+ 2000);
+            System.out.println(gpxDateFormat.format( date) );
         } catch (Exception ex) {
             System.out.println("Unparsing date!");
         }
@@ -228,8 +238,18 @@ public class Main {
   /*      System.out.println("Track+points:\n" );
         track.stream()
               .forEachOrdered(System.out::println);*/
+  trackText.append("<trk>\n" +
+          "    <name>").append(FilenameUtils.removeExtension(FilenameUtils.getName(filename))).append("</name>\n" +
+          "    <extensions>\n" +
+          "      <gpxx:TrackExtension>\n" +
+          "        <gpxx:DisplayColor>Red</gpxx:DisplayColor>\n" +
+          "      </gpxx:TrackExtension>\n" +
+          "    </extensions>\n" +
+          " <trkseg>\n");
 
         String trackFileName = FilenameUtils.removeExtension(filename) + "_track.txt";
+
+        wayPointsDescr.append(FilenameUtils.removeExtension(FilenameUtils.getName(filename))).append("\n" + gpxDateFormat.format(new Date(startTime)) + "\n");
 
         try (PrintWriter fileout = new PrintWriter(trackFileName)) {
 
@@ -257,11 +277,73 @@ public class Main {
                 }
                 Double time = distance / speed + additionalTime;
                 trackDuration += time;
-                fileout.println(track.get(i) + "\t" + (track.get(i).getElevation() + randomGenerator.nextInt(20) / 49.0 - 10 / 49.0) + "\t" + distance + "\t" + time);
+                Double elevation = (track.get(i).getElevation() + randomGenerator.nextInt(20) / 49.0 - 10 / 49.0);
+                fileout.println(track.get(i) + "\t" + elevation + "\t" + distance + "\t" + time);
+                putToGPX(track.get(i), elevation, trackDuration);
             }
             System.out.println("Track length " + trackLength + " metres, vertexes - " + track.size() + ", duration in hours " + trackDuration / 3600);
         } catch (FileNotFoundException ex) {
             System.out.println("File not found!");
+            System.exit(1);
         }
+        trackText.append(" </trkseg>\n</trk>");
+        String gpxFileName = FilenameUtils.removeExtension(filename) + ".gpx";
+
+        try (PrintWriter fileout = new PrintWriter(gpxFileName)) {
+            fileout.print("<?xml version=\"1.0\" encoding=\"utf-8\"?><gpx creator=\"Garmin Desktop App\" version=\"1.1\" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.garmin.com/xmlschemas/WaypointExtension/v1 http://www8.garmin.com/xmlschemas/WaypointExtensionv1.xsd http://www.garmin.com/xmlschemas/TrackPointExtension/v1 http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www8.garmin.com/xmlschemas/GpxExtensionsv3.xsd http://www.garmin.com/xmlschemas/ActivityExtension/v1 http://www8.garmin.com/xmlschemas/ActivityExtensionv1.xsd http://www.garmin.com/xmlschemas/AdventuresExtensions/v1 http://www8.garmin.com/xmlschemas/AdventuresExtensionv1.xsd http://www.garmin.com/xmlschemas/PressureExtension/v1 http://www.garmin.com/xmlschemas/PressureExtensionv1.xsd http://www.garmin.com/xmlschemas/TripExtensions/v1 http://www.garmin.com/xmlschemas/TripExtensionsv1.xsd http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1 http://www.garmin.com/xmlschemas/TripMetaDataExtensionsv1.xsd http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1 http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensionsv1.xsd http://www.garmin.com/xmlschemas/CreationTimeExtension/v1 http://www.garmin.com/xmlschemas/CreationTimeExtensionsv1.xsd http://www.garmin.com/xmlschemas/AccelerationExtension/v1 http://www.garmin.com/xmlschemas/AccelerationExtensionv1.xsd http://www.garmin.com/xmlschemas/PowerExtension/v1 http://www.garmin.com/xmlschemas/PowerExtensionv1.xsd http://www.garmin.com/xmlschemas/VideoExtension/v1 http://www.garmin.com/xmlschemas/VideoExtensionv1.xsd\" xmlns=\"http://www.topografix.com/GPX/1/1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:wptx1=\"http://www.garmin.com/xmlschemas/WaypointExtension/v1\" xmlns:gpxtrx=\"http://www.garmin.com/xmlschemas/GpxExtensions/v3\" xmlns:gpxtpx=\"http://www.garmin.com/xmlschemas/TrackPointExtension/v1\" xmlns:gpxx=\"http://www.garmin.com/xmlschemas/GpxExtensions/v3\" xmlns:trp=\"http://www.garmin.com/xmlschemas/TripExtensions/v1\" xmlns:adv=\"http://www.garmin.com/xmlschemas/AdventuresExtensions/v1\" xmlns:prs=\"http://www.garmin.com/xmlschemas/PressureExtension/v1\" xmlns:tmd=\"http://www.garmin.com/xmlschemas/TripMetaDataExtensions/v1\" xmlns:vptm=\"http://www.garmin.com/xmlschemas/ViaPointTransportationModeExtensions/v1\" xmlns:ctx=\"http://www.garmin.com/xmlschemas/CreationTimeExtension/v1\" xmlns:gpxacc=\"http://www.garmin.com/xmlschemas/AccelerationExtension/v1\" xmlns:gpxpx=\"http://www.garmin.com/xmlschemas/PowerExtension/v1\" xmlns:vidx1=\"http://www.garmin.com/xmlschemas/VideoExtension/v1\">\n\n" +
+                    "  <metadata>\n" +
+                    "    <link href=\"http://www.garmin.com\">\n" +
+                    "      <text>Garmin International</text>\n" +
+                    "    </link>\n" +
+                    "    <time>2017-02-12T20:41:44Z</time>\n" +
+                    "    <bounds maxlat=\"58.830581456422806\" maxlon=\"28.510672738775611\" minlat=\"58.75233463011682\" minlon=\"28.418036447837949\" />\n" +
+                    "  </metadata>");
+            fileout.println(wayPointsText.toString());
+            fileout.println(trackText.toString());
+            fileout.print("\n" +
+                    "</gpx>");
+        } catch (FileNotFoundException ex) {
+            System.out.println("File not found!");
+            System.exit(1);
+        }
+        String descriptionFileName = FilenameUtils.removeExtension(filename) + "_descr.txt";
+
+        try (PrintWriter fileout = new PrintWriter(descriptionFileName)) {
+        fileout.print(wayPointsDescr.toString());
+        } catch (FileNotFoundException ex) {
+            System.out.println("File not found!");
+            System.exit(1);
+        }
+
+        System.out.println(wayPointsText.toString());
+        System.out.println(trackText.toString());
+        System.out.println(wayPointsDescr.toString());
+    }
+
+    private static void putToGPX(GPS_Point point, Double elevation, Double secondsFromFirstPoint ) {
+        Date dateTime = new Date();
+        Double milliseconds = secondsFromFirstPoint * 1000;
+        dateTime.setTime(startTime + milliseconds.intValue());
+        if (point.getType() == LINE_TYPE) {
+            trackText.append(" <trkpt lat=\"").append(point.getLatitude()).append("\" lon=\"").append(point.getLongitude()).append("\">\n" +
+                    "  <ele>").append(elevation).append("</ele>\n" +
+                    "  <time>").append(gpxDateFormat.format(dateTime)).append("</time>\n" +
+                    " </trkpt>\n");
+        } else if (point.getType() == POINT_TYPE) {
+            wayPointsDescr.append(wptNumber).append("\t" + point.getNote() + "\t" + gpxDateFormat.format(dateTime) + "\n");
+            wayPointsText.append("<wpt lat=\"").append(point.getLatitude()).append("\" lon=\"").append(point.getLongitude()).append("\">\n" +
+                    "  <ele>").append(elevation).append("</ele>\n" +
+                    "  <time>").append(gpxDateFormat.format(dateTime)).append("</time>\n" +
+                    "  <name>").append(wptNumber++).append("</name> \n" +
+                    "  <sym>Waypoint</sym> \n" +
+                    "  <type>user</type>\n" +
+                    "  <extensions>\n" +
+                    "   <gpxx:WaypointExtension>\n" +
+                    "    <gpxx:DisplayMode>SymbolAndName</gpxx:DisplayMode>\n" +
+                    "    </gpxx:WaypointExtension>\n" +
+                    "  </extensions>\n" +
+                    " </wpt>");
+        }
+
     }
 }
