@@ -42,7 +42,7 @@ public class Main {
     private static int wptNumber = 1;
 
     private static void usage() {
-        System.err.println("Usage: TrackMaker <file.txt> track_ID lowestSpeed");
+        System.err.println("Usage: TrackMaker <file.txt> track_ID startTime firstWPTNumber lowestSpeed");
         System.err.println("Input text file structure:");
         System.err.println("ObjID   PointNum X Y Lat Lon H Note");
         System.err.println("Output text file (_track.txt) structure:");
@@ -176,42 +176,39 @@ public class Main {
     public static void main(String[] args) {
         // write your code here
         String filename = null;
-        if (args.length > 0) filename = args[0];
+        trackObjectID = 18L;
+        if (args.length > 2) {
+            filename = args[0];
+            trackObjectID = Long.parseLong(args[1]);
 
-        else usage();
-        String fileURL = convertToFileURL(filename);
-        Calendar calendar = Calendar.getInstance();
-
-        try {
-            String dateString = "2016-01-04T10:17:52Z";
-
-            Date date = gpxDateFormat.parse(dateString);
-
-            //Date dateTime = gpxDateFormat.parse(dateString);
-            //trackStartTime = gpxDateFormat.parseDateTime(timestamp);
-            //   trackStartTime = new Inst.get;
-            startTime = date.getTime();
-            System.out.println(gpxDateFormat.format(date) + "  getTime - " + date.getTime());
-            date.setTime(date.getTime()+ 2000);
-            System.out.println(gpxDateFormat.format( date) );
-        } catch (Exception ex) {
-            System.out.println("Unparsing date!");
-        }
-
-
-        try {
-            readTextFile(filename);
-            trackObjectID = 18L;
-            if (args.length > 1) trackObjectID = Long.parseLong(args[1]);
-            if (args.length > 2) {
                 try {
-                    Double lowestSpeed =  Double.parseDouble(args[2]);
-                    lowSpeed = lowestSpeed;
+                    if (args.length>3) {
+                    Integer startWPTNumber = Integer.parseInt(args[3]);
+                    wptNumber = startWPTNumber;}
+                    if (args.length>4) {
+                    Double lowestSpeed =  Double.parseDouble(args[4]);
+                    lowSpeed = lowestSpeed;}
+                    
                 } catch (NumberFormatException ex) {
                     System.err.println("Third parameter must be number. Error in parsing " + args[2]);
                 }
-
+            try {
+                Date date = gpxDateFormat.parse(args[2]);
+                startTime = date.getTime();
+                System.out.println(gpxDateFormat.format(date) + "  getTime - " + date.getTime());
+            } catch (Exception ex) {
+                System.out.println("Unparsing date!");
+                System.exit(1);
             }
+            
+    
+        }
+
+        else usage();
+
+        try {
+            readTextFile(filename);
+
         } catch (IOException ex) {
             System.err.println("Error in reading input file!!!");
             System.exit(1);
