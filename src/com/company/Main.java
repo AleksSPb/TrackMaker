@@ -254,6 +254,9 @@ public class Main {
             Double trackDuration = 0.0;
             Double trackLength = 0.0;
             fileout.println(track.get(0) + "\t" + (track.get(0).getElevation() + randomGenerator.nextInt(20) / 13 - 10 / 13.0));
+            Double elevation = (track.get(0).getElevation() + randomGenerator.nextInt(20) / 49.0 - 10 / 49.0);
+            fileout.println(track.get(0) + "\t" + elevation + "\t 0.0\t 0.0");
+            putToGPX(track.get(0), elevation, trackDuration);
             for (int i = 1; i < track.size(); i++) {
                 GPS_Point prev = track.get(i - 1);
                 Double distance = prev.distance(track.get(i));
@@ -274,7 +277,7 @@ public class Main {
                 }
                 Double time = distance / speed + additionalTime;
                 trackDuration += time;
-                Double elevation = (track.get(i).getElevation() + randomGenerator.nextInt(20) / 49.0 - 10 / 49.0);
+                elevation = (track.get(i).getElevation() + randomGenerator.nextInt(20) / 49.0 - 10 / 49.0);
                 fileout.println(track.get(i) + "\t" + elevation + "\t" + distance + "\t" + time);
                 putToGPX(track.get(i), elevation, trackDuration);
             }
